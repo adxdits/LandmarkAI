@@ -1,9 +1,6 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-import ButtonComponent from "../app/components/ButtonComponent/ButtonComponent"
+'use client';
+import ChatInterface from './components/Chat/ChatInterface';
 
 export default function Home() {
-  return (
-    <><div>One Euro Trip</div><ButtonComponent/></>
-  )
+  return <ChatInterface />;
 }

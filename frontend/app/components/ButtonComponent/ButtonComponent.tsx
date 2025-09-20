@@ -1,6 +1,10 @@
 
+import { Button } from '@mui/material';
+
 export default function ButtonComponent() {
-    return(
-        <div>mon boutton</div>
-    )
+    return (
+        <Button variant="contained" color="primary" size="large">
+            Start Planning Your Trip
+        </Button>
+    );
 }
