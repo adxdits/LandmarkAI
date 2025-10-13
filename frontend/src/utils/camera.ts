@@ -8,14 +8,14 @@ const camera = function () {
     video.width = width;
     video.height = height;
     video.autoplay = true;
-    video.style.display = 'none'; // Hide by default
+    video.style.display = 'none';
     document.body.appendChild(video);
 
     const canvas = document.createElement('canvas');
     canvas.id = 'canvas';
     canvas.width = width;
     canvas.height = height;
-    canvas.style.display = 'none'; // Hide by default
+    canvas.style.display = 'none';
     document.body.appendChild(canvas);
   };
 

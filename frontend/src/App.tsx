@@ -35,7 +35,6 @@ const App: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
         <Header />
         
-        {/* Main Content */}
         <Box 
           sx={{ 
             flex: 1, 
