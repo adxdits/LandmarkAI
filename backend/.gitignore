@@ -43,3 +43,11 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# LLM Model files
+src/main/resources/*.gguf
+src/main/resources/*.bin
+src/main/resources/*.safetensors
+
+# Or more specifically
+backend/src/main/resources/llama-2-7b-chat.Q4_0.gguf

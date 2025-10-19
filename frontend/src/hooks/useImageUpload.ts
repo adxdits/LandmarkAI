@@ -13,7 +13,6 @@ export const useImageUpload = () => {
 
   const simulateAnalysis = () => {
     setIsAnalyzing(true)
-    // Simulate backend processing
     setTimeout(() => {
       setIsAnalyzing(false)
       setFlightResults([
@@ -39,7 +38,6 @@ export const useImageUpload = () => {
     try {
       await camera.startCamera(680, 480)
       if (videoRef.current && camera.video) {
-        // Show the video in our dialog
         videoRef.current.srcObject = camera.video.srcObject
         videoRef.current.play()
       }
@@ -53,7 +51,6 @@ export const useImageUpload = () => {
   const handleTakeSnapshot = () => {
     const snapshot = camera.takeSnapshot()
     if (snapshot) {
-      // Convert data URL to blob and create file
       fetch(snapshot)
         .then(res => res.blob())
         .then(blob => {
@@ -82,7 +79,6 @@ export const useImageUpload = () => {
   }
 
   return {
-    // State
     uploadedImage,
     isAnalyzing,
     flightResults,
@@ -90,8 +86,6 @@ export const useImageUpload = () => {
     cameraError,
     fileInputRef,
     videoRef,
-    
-    // Actions
     handleFileUpload,
     handleOpenCamera,
     handleTakeSnapshot,

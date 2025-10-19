@@ -1,15 +1,14 @@
 import { createTheme } from '@mui/material/styles'
 
-// Airbnb-inspired color palette
 export const theme = createTheme({
   palette: {
     primary: {
-      main: '#FF385C', // Airbnb red/pink
+      main: '#FF385C',
       light: '#FF5A7E',
       dark: '#E31C5F',
     },
     secondary: {
-      main: '#00A699', // Airbnb teal
+      main: '#00A699',
       light: '#26B5A8',
       dark: '#008489',
     },
