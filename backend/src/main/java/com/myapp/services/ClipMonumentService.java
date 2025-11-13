@@ -180,14 +180,22 @@ public class ClipMonumentService {
         int bestIdx = argmax(similarities);
         
         Map<String, Object> response = new HashMap<>();
-        response.put("monument", monuments[bestIdx]);
+        String fullMonument = monuments[bestIdx];
+        Map<String, String> parsedInfo = parseMonumentInfo(fullMonument);
+        
+        response.put("monument", parsedInfo.get("monument"));
+        response.put("city", parsedInfo.get("city"));
+        response.put("country", parsedInfo.get("country"));
         response.put("confidence", similarities[bestIdx]);
         
         List<Map<String, Object>> topResults = new ArrayList<>();
         int[] topIndices = topK(similarities, 5);
         for (int idx : topIndices) {
             Map<String, Object> r = new HashMap<>();
-            r.put("monument", monuments[idx]);
+            Map<String, String> info = parseMonumentInfo(monuments[idx]);
+            r.put("monument", info.get("monument"));
+            r.put("city", info.get("city"));
+            r.put("country", info.get("country"));
             r.put("confidence", similarities[idx]);
             topResults.add(r);
         }
@@ -197,6 +205,50 @@ public class ClipMonumentService {
         results.close();
         
         return response;
+    }
+    
+    private Map<String, String> parseMonumentInfo(String fullName) {
+        Map<String, String> info = new HashMap<>();
+        
+        // Format: "Monument, City" or just "Monument"
+        String[] parts = fullName.split(",");
+        info.put("monument", parts[0].trim());
+        info.put("city", parts.length > 1 ? parts[1].trim() : "");
+        
+        // Map cities to countries
+        String city = info.get("city");
+        String country = getCityCountry(city);
+        info.put("country", country);
+        
+        return info;
+    }
+    
+    private String getCityCountry(String city) {
+        Map<String, String> cityToCountry = new HashMap<>();
+        cityToCountry.put("Paris", "France");
+        cityToCountry.put("Versailles", "France");
+        cityToCountry.put("Normandie", "France");
+        cityToCountry.put("Loire", "France");
+        cityToCountry.put("Nîmes", "France");
+        cityToCountry.put("Carcassonne", "France");
+        cityToCountry.put("Rome", "Italie");
+        cityToCountry.put("Pise", "Italie");
+        cityToCountry.put("Londres", "Royaume-Uni");
+        cityToCountry.put("New York", "États-Unis");
+        cityToCountry.put("San Francisco", "États-Unis");
+        cityToCountry.put("Agra", "Inde");
+        cityToCountry.put("Chine", "Chine");
+        cityToCountry.put("Sydney", "Australie");
+        cityToCountry.put("Rio de Janeiro", "Brésil");
+        cityToCountry.put("Pérou", "Pérou");
+        cityToCountry.put("Le Caire", "Égypte");
+        cityToCountry.put("Jordanie", "Jordanie");
+        cityToCountry.put("Athènes", "Grèce");
+        cityToCountry.put("Barcelone", "Espagne");
+        cityToCountry.put("Grenade", "Espagne");
+        cityToCountry.put("Bavière", "Allemagne");
+        
+        return cityToCountry.getOrDefault(city, "");
     }
     
     private void normalize(float[] vec) {
