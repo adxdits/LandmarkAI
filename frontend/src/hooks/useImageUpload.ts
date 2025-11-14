@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import camera from '../utils/camera'
 import type { UploadedImage, FlightResult } from '../types'
+import { searchFlights } from '../services/flightApi'
 
 // Backend API URL - Using Vite proxy
 const API_URL = '/api/image'
@@ -10,6 +11,7 @@ export const useImageUpload = () => {
   const [flightResults, setFlightResults] = useState<FlightResult[]>([])
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [originAirport, setOriginAirport] = useState<string>('CDG')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -33,36 +35,35 @@ export const useImageUpload = () => {
 
       const data = await response.json()
     
-      // Transformer les résultats du backend en format FlightResult
-      if (data.monument) {
-        const result: FlightResult = {
-          id: 1,
-          destination: `${data.monument}, ${data.city || 'Unknown'}, ${data.country || 'Unknown'}`,
-          price: `Confidence: ${data.confidence ? (data.confidence * 100).toFixed(1) : 0}%`,
-          duration: data.description || 'Monument historique'
+      // After monument recognition, search for real flights
+      if (data.monument && data.city) {
+        try {
+          // Search flights to the monument's city
+          const flights = await searchFlights(data.city, originAirport)
+          
+          // Add monument context to each flight
+          const flightsWithContext = flights.map(flight => ({
+            ...flight,
+            monument: data.monument,
+            city: data.city,
+            country: data.country
+          }))
+          
+          setFlightResults(flightsWithContext)
+        } catch (flightError) {
+          console.error('Error fetching flights:', flightError)
+          // Show monument info even if flights fail
+          setCameraError('Flights unavailable, but monument recognized')
         }
-        setFlightResults([result])
       } else {
-        setFlightResults([
-          {
-            id: 1,
-            destination: 'Monument non reconnu',
-            price: 'Confidence: 0%',
-            duration: 'Essayez avec une autre image'
-          }
-        ])
+        // Monument not recognized
+        setFlightResults([])
+        setCameraError('Monument non reconnu. Essayez avec une autre image.')
       }
     } catch (error) {
       console.error('Erreur lors de l\'analyse:', error)
-      setCameraError('Erreur de connexion au serveur.')
-      setFlightResults([
-        {
-          id: 1,
-          destination: 'Erreur de connexion',
-          price: 'Backend non disponible',
-          duration: 'Vérifiez que le serveur est démarré'
-        }
-      ])
+      setCameraError('Erreur de connexion au serveur. Vérifiez que le backend est démarré.')
+      setFlightResults([])
     } finally {
       setIsAnalyzing(false)
     }
@@ -129,6 +130,8 @@ export const useImageUpload = () => {
     flightResults,
     isCameraOpen,
     cameraError,
+    originAirport,
+    setOriginAirport,
     fileInputRef,
     videoRef,
     handleFileUpload,

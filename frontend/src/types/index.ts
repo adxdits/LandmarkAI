@@ -3,11 +3,24 @@ export interface UploadedImage {
   file: File
 }
 
+// Updated to match real flight API data
 export interface FlightResult {
-  id: number
-  destination: string
-  price: string
+  id: string
+  airline: string
+  departureTime: string
+  arrivalTime: string
   duration: string
+  price: number
+  currency: string
+  bookingUrl: string
+  stops: number
+  departureAirport: string
+  arrivalAirport: string
+  cabinClass: string
+  // Monument info for context
+  monument?: string
+  city?: string
+  country?: string
 }
 
 export interface CameraDialogProps {

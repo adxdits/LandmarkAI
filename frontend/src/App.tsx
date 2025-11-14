@@ -11,7 +11,8 @@ import {
   AnalysisLoading,
   FlightResults,
   CameraDialog,
-  Footer
+  Footer,
+  OriginSelector
 } from './components/index'
 
 const App: React.FC = () => {
@@ -21,6 +22,8 @@ const App: React.FC = () => {
     flightResults,
     isCameraOpen,
     cameraError,
+    originAirport,
+    setOriginAirport,
     fileInputRef,
     videoRef,
     handleFileUpload,
@@ -50,11 +53,17 @@ const App: React.FC = () => {
           {!uploadedImage && <WelcomeMessage />}
 
           {!uploadedImage ? (
-            <UploadArea 
-              onFileUpload={handleFileUpload}
-              onOpenCamera={handleOpenCamera}
-              fileInputRef={fileInputRef}
-            />
+            <>
+              <OriginSelector 
+                value={originAirport}
+                onChange={setOriginAirport}
+              />
+              <UploadArea 
+                onFileUpload={handleFileUpload}
+                onOpenCamera={handleOpenCamera}
+                fileInputRef={fileInputRef}
+              />
+            </>
           ) : (
             <Box>
               <ImagePreview 
