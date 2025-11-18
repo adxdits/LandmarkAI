@@ -27,7 +27,7 @@ const Header: React.FC = () => {
             fontSize: '1.5rem'
           }}
         >
-          TravelSnap
+          OneEurotrip
         </Typography>
         <Avatar sx={{ bgcolor: 'secondary.main' }}>U</Avatar>
       </Toolbar>

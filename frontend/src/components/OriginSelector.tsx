@@ -1,5 +1,5 @@
-import React from 'react'
-import { Box, TextField, MenuItem, Typography } from '@mui/material'
+import React, { useEffect, useState } from 'react'
+import { Box, TextField, MenuItem, Typography, CircularProgress } from '@mui/material'
 import { Flight } from '@mui/icons-material'
 
 interface OriginSelectorProps {
@@ -7,20 +7,78 @@ interface OriginSelectorProps {
   onChange: (value: string) => void
 }
 
-const airports = [
-  { code: 'CDG', name: 'Paris Charles de Gaulle', city: 'Paris' },
-  { code: 'JFK', name: 'New York JFK', city: 'New York' },
-  { code: 'LHR', name: 'London Heathrow', city: 'London' },
-  { code: 'FCO', name: 'Rome Fiumicino', city: 'Rome' },
-  { code: 'MAD', name: 'Madrid Barajas', city: 'Madrid' },
-  { code: 'BCN', name: 'Barcelona El Prat', city: 'Barcelona' },
-  { code: 'AMS', name: 'Amsterdam Schiphol', city: 'Amsterdam' },
-  { code: 'FRA', name: 'Frankfurt Airport', city: 'Frankfurt' },
-  { code: 'MUC', name: 'Munich Airport', city: 'Munich' },
-  { code: 'DXB', name: 'Dubai International', city: 'Dubai' },
-]
+interface Airport {
+  code: string
+  name: string
+  city: string
+}
+
+const AMADEUS_API_KEY = 'lffMk7tTpZcsmSoQ7pbmumZtZQ7rU1Ak'
+const AMADEUS_API_SECRET = 'pVyzB7uyHCIUobUr'
+const AMADEUS_API_BASE = 'https://test.api.amadeus.com'
 
 const OriginSelector: React.FC<OriginSelectorProps> = ({ value, onChange }) => {
+  const [airports, setAirports] = useState<Airport[]>([])
+  const [loading, setLoading] = useState(true)
+  const hasInitialized = React.useRef(false)
+
+  useEffect(() => {
+    if (hasInitialized.current) return
+    hasInitialized.current = true
+    
+    const fetchAirports = async () => {
+      const tokenResponse = await fetch('https://test.api.amadeus.com/v1/security/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: AMADEUS_API_KEY,
+          client_secret: AMADEUS_API_SECRET,
+        }),
+      }).catch(() => null)
+
+      if (!tokenResponse?.ok) {
+        setLoading(false)
+        return
+      }
+
+      const { access_token } = await tokenResponse.json()
+
+      const cities = ['Paris', 'New York', 'London', 'Rome', 'Madrid', 'Barcelona', 'Amsterdam', 'Frankfurt', 'Munich', 'Dubai']
+      const airportPromises = cities.map(async (city) => {
+        const response = await fetch(
+          `${AMADEUS_API_BASE}/v1/reference-data/locations?keyword=${encodeURIComponent(city)}&subType=AIRPORT&page[limit]=1`,
+          { headers: { 'Authorization': `Bearer ${access_token}` } }
+        ).catch(() => null)
+
+        if (response?.ok) {
+          const data = await response.json()
+          const airport = data?.data?.[0]
+          if (airport) {
+            return {
+              code: airport.iataCode,
+              name: airport.name,
+              city: airport.address?.cityName || city
+            }
+          }
+        }
+        return null
+      })
+
+      const results = await Promise.all(airportPromises)
+      const filteredAirports = results.filter((a): a is Airport => a !== null)
+      setAirports(filteredAirports)
+      
+      if (filteredAirports.length > 0 && !value) {
+        onChange(filteredAirports[0].code)
+      }
+      
+      setLoading(false)
+    }
+
+    fetchAirports()
+  }, [])
+
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -35,6 +93,7 @@ const OriginSelector: React.FC<OriginSelectorProps> = ({ value, onChange }) => {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         size="small"
+        disabled={loading}
         sx={{
           bgcolor: 'white',
           '& .MuiOutlinedInput-root': {
@@ -47,11 +106,18 @@ const OriginSelector: React.FC<OriginSelectorProps> = ({ value, onChange }) => {
           },
         }}
       >
-        {airports.map((airport) => (
-          <MenuItem key={airport.code} value={airport.code}>
-            {airport.city} ({airport.code}) - {airport.name}
+        {loading ? (
+          <MenuItem disabled>
+            <CircularProgress size={20} sx={{ mr: 1 }} />
+            Chargement des aéroports...
           </MenuItem>
-        ))}
+        ) : (
+          airports.map((airport) => (
+            <MenuItem key={airport.code} value={airport.code}>
+              {airport.city} ({airport.code}) - {airport.name}
+            </MenuItem>
+          ))
+        )}
       </TextField>
     </Box>
   )

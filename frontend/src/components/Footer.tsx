@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
       }}
     >
       <Typography variant="body2" color="text.secondary" align="center">
-        © 2025 TravelSnap • Discover the world through your lens
+        © 2025 OneEurotrip • Discover the world through your lens
       </Typography>
     </Box>
   )

@@ -12,7 +12,8 @@ import {
   FlightResults,
   CameraDialog,
   Footer,
-  OriginSelector
+  OriginSelector,
+  DateSelector
 } from './components/index'
 
 const App: React.FC = () => {
@@ -24,6 +25,8 @@ const App: React.FC = () => {
     cameraError,
     originAirport,
     setOriginAirport,
+    departureDate,
+    setDepartureDate,
     fileInputRef,
     videoRef,
     handleFileUpload,
@@ -57,6 +60,10 @@ const App: React.FC = () => {
               <OriginSelector 
                 value={originAirport}
                 onChange={setOriginAirport}
+              />
+              <DateSelector 
+                value={departureDate}
+                onChange={setDepartureDate}
               />
               <UploadArea 
                 onFileUpload={handleFileUpload}

@@ -57,11 +57,15 @@ interface AmadeusTokenResponse {
   expires_in: number
 }
 
+// Cache for airport codes to avoid repeated API calls
+const airportCache = new Map<string, string>()
+const airlineCache = new Map<string, string>()
+
 interface CityToAirport {
   [key: string]: string
 }
 
-// Map cities to IATA airport codes
+// Map cities to IATA airport codes (fallback)
 const cityToAirport: CityToAirport = {
   'Paris': 'CDG',
   'Rome': 'FCO',
@@ -95,6 +99,52 @@ const carrierNames: { [key: string]: string } = {
   'IB': 'Iberia',
   'KL': 'KLM',
   'TK': 'Turkish Airlines',
+}
+
+// Get airport code from city name using Amadeus API
+const getAirportCode = async (city: string, token: string): Promise<string> => {
+  console.log('getAirportCode called with city:', city)
+  if (airportCache.has(city)) {
+    console.log('Using cached airport code:', airportCache.get(city))
+    return airportCache.get(city)!
+  }
+
+  const response = await fetch(
+    `${AMADEUS_API_BASE}/v1/reference-data/locations?keyword=${encodeURIComponent(city)}&subType=AIRPORT&page[limit]=1`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  ).catch(() => null)
+
+  const json = response?.ok ? await response.json().catch(() => null) : null
+  console.log('Airport API response for', city, ':', json)
+  
+  const code = json?.data?.[0]?.iataCode || cityToAirport[city] || 'CDG'
+  console.log('Airport code for', city, ':', code)
+    
+  airportCache.set(city, code)
+  return code
+}
+
+// Get airline name from carrier code using Amadeus API
+const getAirlineName = async (carrierCode: string, token: string): Promise<string> => {
+  if (airlineCache.has(carrierCode)) {
+    return airlineCache.get(carrierCode)!
+  }
+
+  const response = await fetch(
+    `${AMADEUS_API_BASE}/v1/reference-data/airlines?airlineCodes=${carrierCode}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  ).catch(() => null)
+
+  const name = response?.ok
+    ? (await response.json().catch(() => null))?.data?.[0]?.businessName || carrierNames[carrierCode] || carrierCode
+    : carrierNames[carrierCode] || carrierCode
+    
+  airlineCache.set(carrierCode, name)
+  return name
 }
 
 // Get access token from Amadeus API
@@ -155,17 +205,24 @@ const parseDuration = (duration: string): string => {
 }
 
 // Transform Amadeus response to our FlightOffer format
-const transformAmadeusOffer = (offer: AmadeusFlightOffer): FlightOffer => {
+const transformAmadeusOffer = async (offer: AmadeusFlightOffer, token: string, departureDate: string): Promise<FlightOffer> => {
   const firstItinerary = offer.itineraries[0]
   const firstSegment = firstItinerary.segments[0]
   const lastSegment = firstItinerary.segments[firstItinerary.segments.length - 1]
   
   const carrierCode = firstSegment.carrierCode
-  const airline = carrierNames[carrierCode] || carrierCode
+  const airline = await getAirlineName(carrierCode, token)
   const airlineLogoUrl = `https://images.kiwi.com/airlines/64/${carrierCode}.png`
   
   const cabin = offer.travelerPricings[0]?.fareDetailsBySegment[0]?.cabin || 'ECONOMY'
   const cabinClass = cabin.charAt(0) + cabin.slice(1).toLowerCase()
+  
+  // Build Skyscanner URL with date format YYMMDD
+  const originCode = firstSegment.departure.iataCode
+  const destCode = lastSegment.arrival.iataCode
+  const [year, month, day] = departureDate.split('-')
+  const skyscannerDate = `${year.slice(2)}${month}${day}`
+  const bookingUrl = `https://www.skyscanner.com/transport/flights/${originCode}/${destCode}/${skyscannerDate}/`
   
   return {
     id: offer.id,
@@ -177,7 +234,7 @@ const transformAmadeusOffer = (offer: AmadeusFlightOffer): FlightOffer => {
     duration: parseDuration(firstItinerary.duration),
     price: parseFloat(offer.price.total),
     currency: offer.price.currency,
-    bookingUrl: `https://www.google.com/flights?q=flights+from+${firstSegment.departure.iataCode}+to+${lastSegment.arrival.iataCode}`,
+    bookingUrl,
     stops: firstItinerary.segments.length - 1,
     departureAirport: firstSegment.departure.iataCode,
     arrivalAirport: lastSegment.arrival.iataCode,
@@ -189,26 +246,29 @@ const transformAmadeusOffer = (offer: AmadeusFlightOffer): FlightOffer => {
  * Search for flights to a destination city
  * @param city - Destination city name
  * @param origin - Origin airport code (optional, auto-determined if not provided)
+ * @param departureDate - Departure date in YYYY-MM-DD format (optional, defaults to 7 days from now)
  * @returns Array of flight offers
  */
-export const searchFlights = async (city: string, origin?: string): Promise<FlightOffer[]> => {
-  const destinationCode = cityToAirport[city] || 'CDG'
+export const searchFlights = async (city: string, origin?: string, departureDate?: string): Promise<FlightOffer[]> => {
+  console.log('searchFlights called:', { city, origin, departureDate })
+  const token = await getAccessToken()
+  console.log('Token obtained')
+  const destinationCode = await getAirportCode(city, token)
+  console.log('Destination code:', destinationCode)
   let originCode = origin || getUserLocation(destinationCode)
+  console.log('Origin code:', originCode)
   
   // If origin and destination are the same, automatically switch to alternate origin
   if (originCode === destinationCode) {
     originCode = originCode === 'CDG' ? 'JFK' : 'CDG'
-    console.log(`Origin and destination were same (${destinationCode}), auto-switched origin to ${originCode}`)
   }
-  
-  try {
-    // Get access token
-    const token = await getAccessToken()
     
-    // Get departure date (7 days from now)
-    const departureDate = new Date()
-    departureDate.setDate(departureDate.getDate() + 7)
-    const departureDateStr = departureDate.toISOString().split('T')[0]
+  // Get departure date
+  const departureDateStr = departureDate || (() => {
+    const date = new Date()
+    date.setDate(date.getDate() + 7)
+    return date.toISOString().split('T')[0]
+  })()
     
     // Build request body according to Amadeus API spec
     const requestBody = {
@@ -235,8 +295,6 @@ export const searchFlights = async (city: string, origin?: string): Promise<Flig
       }
     }
     
-    console.log('Calling Amadeus API POST with body:', requestBody)
-    
     const response = await fetch(`${AMADEUS_API_BASE}/v2/shopping/flight-offers`, {
       method: 'POST',
       headers: {
@@ -247,24 +305,21 @@ export const searchFlights = async (city: string, origin?: string): Promise<Flig
     })
     
     if (!response.ok) {
-      const errorBody = await response.text()
-      console.error('Amadeus API error details:', errorBody)
-      throw new Error(`Amadeus API error: ${response.statusText} - ${errorBody}`)
+      console.log('API response not OK:', response.status)
+      return []
     }
     
     const data = await response.json()
+    console.log('API data:', data)
     
     if (!data.data || data.data.length === 0) {
-      throw new Error('No flights found')
+      console.log('No flights found in API response')
+      return []
     }
     
-    // Transform and return up to 3 offers
-    return data.data.slice(0, 3).map(transformAmadeusOffer)
-    
-  } catch (error) {
-    console.error('Error fetching flights from Amadeus:', error)
-    throw error
-  }
+    const offers = await Promise.all(data.data.slice(0, 3).map((offer: AmadeusFlightOffer) => transformAmadeusOffer(offer, token, departureDateStr)))
+    console.log('Transformed offers:', offers)
+    return offers
 }
 
 /**

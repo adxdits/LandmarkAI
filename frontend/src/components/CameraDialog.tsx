@@ -43,17 +43,7 @@ const CameraDialog: React.FC<CameraDialogProps> = ({
         </IconButton>
       </DialogTitle>
       <DialogContent>
-        {error ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="error" gutterBottom>
-              {error}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Please allow camera access in your browser settings
-            </Typography>
-          </Box>
-        ) : (
-          <Box 
+        <Box 
             sx={{ 
               position: 'relative',
               width: '100%',
@@ -73,7 +63,6 @@ const CameraDialog: React.FC<CameraDialogProps> = ({
               }}
             />
           </Box>
-        )}
       </DialogContent>
       <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
         <Button 
@@ -91,7 +80,6 @@ const CameraDialog: React.FC<CameraDialogProps> = ({
           onClick={onCapture}
           variant="contained"
           startIcon={<CameraAlt />}
-          disabled={!!error}
           sx={{
             px: 4,
             textTransform: 'none',
