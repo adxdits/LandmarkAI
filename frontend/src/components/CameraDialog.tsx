@@ -63,6 +63,11 @@ const CameraDialog: React.FC<CameraDialogProps> = ({
               }}
             />
           </Box>
+          {error && (
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              {error}
+            </Typography>
+          )}
       </DialogContent>
       <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
         <Button 

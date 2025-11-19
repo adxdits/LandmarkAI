@@ -23,5 +23,6 @@ public class Poi extends PanacheEntityBase {
     public String image_url;
 
     @OneToMany(mappedBy = "poi", cascade = CascadeType.ALL)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public List<PoiImage> images;
 }

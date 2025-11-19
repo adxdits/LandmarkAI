@@ -1,12 +1,33 @@
-import React from 'react'
-import { Box, Typography, Stack, Paper, Chip, Button } from '@mui/material'
+import React, { useState } from 'react'
+import { Box, Typography, Stack, Paper, Chip, Button, CircularProgress } from '@mui/material'
 import { Flight, FlightTakeoff, FlightLand, AirlineSeatReclineNormal } from '@mui/icons-material'
 import type { FlightResultsProps } from '../types'
 import { formatFlightDate, formatPrice } from '../services/flightApi'
+import { saveFlightForUser } from '../services/historyApi'
 
 const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
+  const [savingIds, setSavingIds] = useState<Record<string, boolean>>({})
+
   const handleBookNow = (bookingUrl: string) => {
     window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleSave = async (flight: any) => {
+    const id = flight.id
+    try {
+      setSavingIds(prev => ({ ...prev, [id]: true }))
+      const stored = localStorage.getItem('currentUserId')
+      if (!stored) throw new Error('Aucun utilisateur courant sélectionné')
+      const userId = Number(stored)
+      await saveFlightForUser(flight, userId)
+      // simple feedback - alert for now
+      window.alert('Vol sauvegardé dans votre historique')
+    } catch (e: any) {
+      console.error('Save failed', e)
+      window.alert('Erreur lors de la sauvegarde: ' + (e?.message || ''))
+    } finally {
+      setSavingIds(prev => ({ ...prev, [id]: false }))
+    }
   }
 
   // Show monument info if available
@@ -64,14 +85,16 @@ const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
             {/* Airline and Cabin Class */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <img 
-                  src={flight.airlineLogoUrl} 
-                  alt={flight.airline}
-                  style={{ width: 40, height: 40, objectFit: 'contain' }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
+                {((flight as any).airlineLogoUrl) ? (
+                  <img 
+                    src={(flight as any).airlineLogoUrl} 
+                    alt={flight.airline}
+                    style={{ width: 40, height: 40, objectFit: 'contain' }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : null}
                 <Typography variant="h6" fontWeight={700} color="primary.dark">
                   {flight.airline}
                 </Typography>
@@ -135,22 +158,34 @@ const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
               <Typography variant="h5" fontWeight={700} color="primary.main">
                 {formatPrice(flight.price, flight.currency)}
               </Typography>
-              <Button 
-                variant="contained" 
-                size="large"
-                onClick={() => handleBookNow(flight.bookingUrl)}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 4,
-                  boxShadow: 'none',
-                  '&:hover': {
-                    boxShadow: '0 2px 8px rgba(255, 56, 92, 0.3)',
-                  }
-                }}
-              >
-                Réserver Maintenant
-              </Button>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  onClick={() => handleBookNow(flight.bookingUrl)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 4,
+                    boxShadow: 'none',
+                    '&:hover': {
+                      boxShadow: '0 2px 8px rgba(255, 56, 92, 0.3)',
+                    }
+                  }}
+                >
+                  Réserver Maintenant
+                </Button>
+
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => handleSave(flight)}
+                  disabled={Boolean(savingIds[flight.id])}
+                  sx={{ textTransform: 'none', fontWeight: 600, px: 3 }}
+                >
+                  {savingIds[flight.id] ? <CircularProgress size={18} /> : 'Sauvegarder'}
+                </Button>
+              </Stack>
             </Box>
           </Paper>
         ))}
