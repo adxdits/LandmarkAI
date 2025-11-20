@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { AppBar, Toolbar, Typography, IconButton, Avatar, Menu, MenuItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, ListItemIcon, Divider } from '@mui/material'
+import { AppBar, Toolbar, Typography, IconButton, Avatar, Menu, MenuItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, ListItemIcon, Divider, Drawer, List, ListItem } from '@mui/material'
 import { Flight, Menu as MenuIcon, Check, Delete, Edit } from '@mui/icons-material'
+import { getUserHistory, deleteHistory } from '../services/historyApi'
 import { deleteUser, updateUser } from '../services/userApi'
 import { getUsers, createUser } from '../services/userApi'
 
@@ -23,6 +24,12 @@ const Header: React.FC = () => {
   const [renamePseudo, setRenamePseudo] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameError, setRenameError] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [histories, setHistories] = useState<any[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [histToDelete, setHistToDelete] = useState<any | null>(null)
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false)
+  const [deleteHistoryError, setDeleteHistoryError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -224,7 +231,24 @@ const Header: React.FC = () => {
       }}
     >
       <Toolbar>
-        <IconButton edge="start" sx={{ mr: 2, color: 'primary.main' }}>
+        <IconButton edge="start" sx={{ mr: 2, color: 'primary.main' }} onClick={async () => {
+          // open history drawer for current user
+          setDrawerOpen(true)
+          const stored = localStorage.getItem('currentUserId')
+          if (!stored) return
+          const uid = Number(stored)
+          if (!uid) return
+          try {
+            setLoadingHistory(true)
+            const h = await getUserHistory(uid)
+            setHistories(h || [])
+          } catch (e) {
+            console.error('Failed to load history', e)
+            setHistories([])
+          } finally {
+            setLoadingHistory(false)
+          }
+        }}>
           <MenuIcon />
         </IconButton>
         <Flight sx={{ mr: 1, color: 'primary.main' }} />
@@ -360,6 +384,73 @@ const Header: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+        <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          <Box sx={{ width: 360, p: 2 }} role="presentation">
+            <Typography variant="h6" sx={{ mb: 1 }}>Historique — {currentUser?.pseudo ?? ''}</Typography>
+            <Divider sx={{ mb: 1 }} />
+            <List>
+              {loadingHistory && (
+                <ListItem>
+                  <ListItemText primary="Chargement..." />
+                </ListItem>
+              )}
+              {!loadingHistory && histories.length === 0 && (
+                <ListItem>
+                  <ListItemText primary="Aucun historique" />
+                </ListItem>
+              )}
+              {!loadingHistory && histories.map(h => (
+                <ListItem key={h.id} alignItems="flex-start" secondaryAction={
+                  <IconButton edge="end" aria-label="delete" size="small" onClick={() => {
+                    setDeleteHistoryError(null)
+                    setHistToDelete(h)
+                  }}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                }>
+                  <ListItemText
+                    primary={`${h.ticket?.poi?.name ?? 'Destination'} — ${h.ticket?.price ?? ''} €`}
+                    secondary={`${h.ticket?.poi?.location ?? ''}${h.purchase_date ? ' — ' + new Date(h.purchase_date).toLocaleDateString() : ''}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+            <Dialog open={histToDelete !== null} onClose={() => { if (!isDeletingHistory) setHistToDelete(null); }} fullWidth maxWidth="xs">
+              <DialogTitle>Confirmer la suppression</DialogTitle>
+              <DialogContent>
+                <Typography>
+                  Voulez-vous vraiment supprimer cette entrée de l'historique ?
+                </Typography>
+                {histToDelete && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="subtitle2">{histToDelete.ticket?.poi?.name ?? 'Destination'}</Typography>
+                    <Typography variant="body2" color="text.secondary">{histToDelete.ticket?.poi?.location ?? ''}</Typography>
+                  </Box>
+                )}
+                {deleteHistoryError && (
+                  <Typography color="error" variant="body2" sx={{ mt: 1 }}>{deleteHistoryError}</Typography>
+                )}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setHistToDelete(null)} disabled={isDeletingHistory}>Annuler</Button>
+                <Button color="error" variant="contained" onClick={async () => {
+                  if (!histToDelete || histToDelete.id === undefined) return
+                  try {
+                    setIsDeletingHistory(true)
+                    await deleteHistory(histToDelete.id)
+                    setHistories(prev => prev.filter(x => x.id !== histToDelete.id))
+                    setHistToDelete(null)
+                  } catch (e: any) {
+                    console.error('Failed to delete history', e)
+                    setDeleteHistoryError(e?.message || 'Erreur lors de la suppression')
+                  } finally {
+                    setIsDeletingHistory(false)
+                  }
+                }} disabled={isDeletingHistory}>{isDeletingHistory ? 'Suppression...' : 'Supprimer'}</Button>
+              </DialogActions>
+            </Dialog>
+          </Box>
+        </Drawer>
       </Toolbar>
     </AppBar>
   )

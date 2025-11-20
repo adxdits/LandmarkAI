@@ -136,6 +136,13 @@ public class HistoryResource {
         }
     }
 
+    @GET
+    @Path("/user/{userId}")
+    public List<History> findByUser(@PathParam("userId") Long userId) {
+        if (userId == null) throw new NotFoundException("User id required");
+        return repository.find("user.id = ?1 order by purchase_date desc", userId).list();
+    }
+
     @POST
     @Path("/check")
     public boolean checkExists(com.myapp.resources.dto.HistoryCheckRequest req) {

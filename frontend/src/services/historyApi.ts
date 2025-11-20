@@ -85,6 +85,26 @@ export async function checkUserHasTicket(req: HistoryCheckRequest) {
   return res.json() as Promise<boolean>
 }
 
+export async function getUserHistory(userId: number) {
+  const res = await fetch(`/api/histories/user/${userId}`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Failed to fetch history: ${res.status} ${text}`)
+  }
+  return res.json()
+}
+
+export async function deleteHistory(historyId: number) {
+  const res = await fetch(`/api/histories/${historyId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Failed to delete history: ${res.status} ${text}`)
+  }
+  return true
+}
+
 // Helper that saves a flight: creates poi -> ticket -> history
 export async function saveFlightForUser(flight: any, userId: number) {
   // Determine poi fields
