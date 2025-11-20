@@ -25,6 +25,9 @@ public class TicketResource {
     @Inject
     PoiRepository poiRepository;
 
+    @Inject
+    jakarta.persistence.EntityManager em;
+
     private static final Logger LOG = Logger.getLogger(TicketResource.class);
 
     @GET
@@ -67,9 +70,21 @@ public class TicketResource {
                     newPoi.description = req.poi.description;
                     newPoi.location = location;
                     newPoi.image_url = req.poi.image_url;
-                    poiRepository.persist(newPoi);
-                    managedPoi = newPoi;
-                    LOG.infof("Created new POI with id=%s name=%s", managedPoi.id, managedPoi.name);
+                    try {
+                        poiRepository.persist(newPoi);
+                        managedPoi = newPoi;
+                        LOG.infof("Created new POI with id=%s name=%s", managedPoi.id, managedPoi.name);
+                    } catch (jakarta.persistence.PersistenceException pe) {
+                        // likely a unique constraint race: another request created the POI concurrently
+                        LOG.warnf(pe, "Failed to persist POI (possible duplicate), attempting to re-query by name/location: %s / %s", name, location);
+                        managedPoi = poiRepository.findByNameAndLocationIgnoreCase(name, location);
+                        if (managedPoi == null) {
+                            String msg = "Failed to create or find POI after constraint violation";
+                            LOG.error(msg, pe);
+                            throw new WebApplicationException(msg, Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(msg).type(MediaType.TEXT_PLAIN).build());
+                        }
+                        LOG.infof("Found existing POI after race: id=%s name=%s", managedPoi.id, managedPoi.name);
+                    }
                 } else {
                     LOG.infof("Reusing existing POI id=%s name=%s", managedPoi.id, managedPoi.name);
                 }
@@ -97,10 +112,34 @@ public class TicketResource {
         }
         toPersist.start_date = req.start_date;
         toPersist.end_date = req.end_date;
+        // Check proactively if an equivalent ticket already exists to avoid creating duplicates
+        Ticket existing = repository.findByUniqueFields(managedPoi.id, toPersist.price, toPersist.transport_mode, toPersist.start_date, toPersist.end_date);
+        if (existing != null) {
+            LOG.infof("Reusing existing Ticket id=%s for poi=%s price=%s", existing.id, managedPoi.id, existing.price);
+            return existing;
+        }
 
-        repository.persist(toPersist);
-        LOG.infof("Ticket persisted with id=%s", toPersist.id);
-        return toPersist;
+        try {
+            repository.persist(toPersist);
+            LOG.infof("Ticket persisted with id=%s", toPersist.id);
+            return toPersist;
+        } catch (jakarta.persistence.PersistenceException pe) {
+            // possible unique constraint race: clear EM and re-query
+            LOG.warnf(pe, "Failed to persist Ticket (possible duplicate) for poi=%s price=%s", managedPoi.id, toPersist.price);
+            try {
+                em.clear();
+            } catch (Exception e) {
+                LOG.warnf(e, "Failed to clear EntityManager after Ticket persistence exception");
+            }
+            Ticket found = repository.findByUniqueFields(managedPoi.id, toPersist.price, toPersist.transport_mode, toPersist.start_date, toPersist.end_date);
+            if (found != null) {
+                LOG.infof("Found existing Ticket id=%s after constraint violation", found.id);
+                return found;
+            }
+            String msg = "Failed to create or find Ticket after constraint violation";
+            LOG.error(msg, pe);
+            throw new WebApplicationException(msg, Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(msg).type(MediaType.TEXT_PLAIN).build());
+        }
     }
 
     @PUT

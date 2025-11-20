@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
-@Table(name = "ticket")
+@Table(name = "ticket", uniqueConstraints = {@UniqueConstraint(columnNames = {"poi_id", "price", "transport_mode", "start_date", "end_date"})})
 public class Ticket extends PanacheEntityBase {
 
     @Id

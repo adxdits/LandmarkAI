@@ -66,6 +66,12 @@
             <artifactId>quarkus-smallrye-openapi</artifactId>
         </dependency>
 
+        <!-- Flyway DB migrations -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+
         <!-- CDI -->
         <dependency>
             <groupId>io.quarkus</groupId>

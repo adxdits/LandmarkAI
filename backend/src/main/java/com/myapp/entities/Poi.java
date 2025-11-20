@@ -7,7 +7,7 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
-@Table(name = "poi")
+@Table(name = "poi", uniqueConstraints = {@UniqueConstraint(columnNames = {"name", "location"})})
 public class Poi extends PanacheEntityBase {
 
     @Id

@@ -11,6 +11,7 @@ import org.jboss.logging.Logger;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -29,6 +30,9 @@ public class HistoryResource {
 
     @Inject
     TicketRepository ticketRepository;
+
+    @Inject
+    EntityManager em;
 
     private static final Logger LOG = Logger.getLogger(HistoryResource.class);
     @GET
@@ -69,14 +73,37 @@ public class HistoryResource {
         Ticket managedTicket = ticketRepository.findByIdOptional(req.ticketId)
                 .orElseThrow(() -> new WebApplicationException("Ticket not found", Response.status(Response.Status.NOT_FOUND).entity("Ticket not found").type("text/plain").build()));
 
+        // If a history already exists for this user+ticket, return it (idempotent)
+        History existing = repository.findByUserAndTicket(managedUser.id, managedTicket.id);
+        if (existing != null) {
+            LOG.infof("History already exists id=%s for user=%s ticket=%s", existing.id, managedUser.id, managedTicket.id);
+            return existing;
+        }
+
         History history = new History();
         history.user = managedUser;
         history.ticket = managedTicket;
         // default purchase_date is set in entity
 
-        repository.persist(history);
-        LOG.infof("History persisted with id=%s for user=%s ticket=%s", history.id, managedUser.id, managedTicket.id);
-        return history;
+        try {
+            repository.persist(history);
+            LOG.infof("History persisted with id=%s for user=%s ticket=%s", history.id, managedUser.id, managedTicket.id);
+            return history;
+        } catch (jakarta.persistence.PersistenceException pe) {
+            // possible unique constraint race: another request created this history concurrently
+            LOG.warnf(pe, "Failed to persist History (possible duplicate) for user=%s ticket=%s", managedUser.id, managedTicket.id);
+            try {
+                // clear EM to avoid stale entities
+                em.clear();
+            } catch (Exception e) {
+                LOG.warnf(e, "Failed to clear EntityManager after History persistence exception");
+            }
+            History found = repository.findByUserAndTicket(managedUser.id, managedTicket.id);
+            if (found != null) return found;
+            String msg = "Failed to create or find History after constraint violation";
+            LOG.error(msg, pe);
+            throw new WebApplicationException(msg, Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(msg).type("text/plain").build());
+        }
     }
 
     @PUT

@@ -12,12 +12,10 @@ public class PoiRepository implements PanacheRepository<Poi> {
 	 */
 	public Poi findByNameAndLocationIgnoreCase(String name, String location) {
 		if (name == null) return null;
+		// Normalize name and location. Treat null/empty location as empty string so
+		// lookups are consistent with the unique index we create (which uses COALESCE).
 		String n = name.trim().toLowerCase();
-		if (location != null && !location.trim().isEmpty()) {
-			String loc = location.trim().toLowerCase();
-			return find("lower(name) = ?1 and lower(location) = ?2", n, loc).firstResult();
-		} else {
-			return find("lower(name) = ?1", n).firstResult();
-		}
+		String loc = (location == null) ? "" : location.trim().toLowerCase();
+		return find("lower(name) = ?1 and lower(coalesce(location,'')) = ?2", n, loc).firstResult();
 	}
 }
