@@ -385,36 +385,59 @@ const Header: React.FC = () => {
           </DialogActions>
         </Dialog>
         <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-          <Box sx={{ width: 360, p: 2 }} role="presentation">
-            <Typography variant="h6" sx={{ mb: 1 }}>Historique — {currentUser?.pseudo ?? ''}</Typography>
-            <Divider sx={{ mb: 1 }} />
-            <List>
-              {loadingHistory && (
-                <ListItem>
-                  <ListItemText primary="Chargement..." />
-                </ListItem>
-              )}
-              {!loadingHistory && histories.length === 0 && (
-                <ListItem>
-                  <ListItemText primary="Aucun historique" />
-                </ListItem>
-              )}
-              {!loadingHistory && histories.map(h => (
-                <ListItem key={h.id} alignItems="flex-start" secondaryAction={
-                  <IconButton edge="end" aria-label="delete" size="small" onClick={() => {
-                    setDeleteHistoryError(null)
-                    setHistToDelete(h)
-                  }}>
-                    <Delete fontSize="small" />
-                  </IconButton>
-                }>
-                  <ListItemText
-                    primary={`${h.ticket?.poi?.name ?? 'Destination'} — ${h.ticket?.price ?? ''} €`}
-                    secondary={`${h.ticket?.poi?.location ?? ''}${h.purchase_date ? ' — ' + new Date(h.purchase_date).toLocaleDateString() : ''}`}
-                  />
-                </ListItem>
-              ))}
-            </List>
+          <Box sx={{ width: 360, height: '100vh', display: 'flex', flexDirection: 'column', p: 2 }} role="presentation">
+            <Box>
+              <Typography variant="h6" sx={{ mb: 1 }}>Historique — {currentUser?.pseudo ?? ''}</Typography>
+              <Divider sx={{ mb: 1 }} />
+            </Box>
+
+            <Box sx={{ flex: 1, overflowY: 'auto' }}>
+              <List>
+                {loadingHistory && (
+                  <ListItem>
+                    <ListItemText primary="Chargement..." />
+                  </ListItem>
+                )}
+                {!loadingHistory && histories.length === 0 && (
+                  <ListItem>
+                    <ListItemText primary="Aucun historique" />
+                  </ListItem>
+                )}
+                {!loadingHistory && histories.map(h => (
+                  <ListItem key={h.id} alignItems="flex-start" secondaryAction={
+                    <IconButton edge="end" aria-label="delete" size="small" onClick={() => {
+                      setDeleteHistoryError(null)
+                      setHistToDelete(h)
+                    }}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  }>
+                    <ListItemText
+                      primary={`${h.ticket?.poi?.name ?? 'Destination'} — ${h.ticket?.price ?? ''} €`}
+                      secondary={`${h.ticket?.poi?.location ?? ''}${h.purchase_date ? ' — ' + new Date(h.purchase_date).toLocaleDateString() : ''}`}
+                    />
+                    {/* Clickable booking link button */}
+                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const url = h.ticket?.flight_url || h.ticket?.flightUrl || h.ticket?.bookingUrl
+                          if (!url) return
+                          // open in new tab safely
+                          window.open(url, '_blank', 'noopener,noreferrer')
+                        }}
+                        disabled={!h.ticket?.flight_url && !h.ticket?.flightUrl && !h.ticket?.bookingUrl}
+                      >
+                        Voir le vol
+                      </Button>
+                    </Box>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+
             <Dialog open={histToDelete !== null} onClose={() => { if (!isDeletingHistory) setHistToDelete(null); }} fullWidth maxWidth="xs">
               <DialogTitle>Confirmer la suppression</DialogTitle>
               <DialogContent>

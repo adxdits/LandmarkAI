@@ -112,6 +112,8 @@ public class TicketResource {
         }
         toPersist.start_date = req.start_date;
         toPersist.end_date = req.end_date;
+        // store optional flight booking URL from client
+        toPersist.flight_url = req.flight_url;
         // Check proactively if an equivalent ticket already exists to avoid creating duplicates
         Ticket existing = repository.findByUniqueFields(managedPoi.id, toPersist.price, toPersist.transport_mode, toPersist.start_date, toPersist.end_date);
         if (existing != null) {
@@ -153,6 +155,7 @@ public class TicketResource {
         entity.transport_mode = data.transport_mode;
         entity.start_date = data.start_date;
         entity.end_date = data.end_date;
+        entity.flight_url = data.flight_url;
         return entity;
     }
 

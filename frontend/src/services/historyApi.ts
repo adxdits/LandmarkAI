@@ -11,6 +11,7 @@ type TicketPayload = {
   transport_mode: 'Avion' | 'Train' | 'Voiture'
   start_date?: string
   end_date?: string
+  flight_url?: string
 }
 
 type HistoryPayload = {
@@ -135,6 +136,7 @@ export async function saveFlightForUser(flight: any, userId: number) {
       poi: { id: poi.id },
       price: Number(flight.price) || 0,
       transport_mode: 'Avion',
+      flight_url: (flight as any).bookingUrl || (flight as any).bookingURL || undefined,
       start_date: toDate(flight.departureTime),
       end_date: toDate(flight.arrivalTime),
     })

@@ -17,4 +17,5 @@ public class TicketRequest {
     public String transport_mode;
     public LocalDate start_date;
     public LocalDate end_date;
+    public String flight_url;
 }

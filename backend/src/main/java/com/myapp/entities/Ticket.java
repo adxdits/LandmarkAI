@@ -28,6 +28,8 @@ public class Ticket extends PanacheEntityBase {
     public LocalDate start_date;
     public LocalDate end_date;
 
+    public String flight_url;
+
     public enum TransportMode {
         Avion, Train, Voiture
     }
