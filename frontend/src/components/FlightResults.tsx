@@ -11,6 +11,7 @@ const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
   const [savingIds, setSavingIds] = useState<Record<string, boolean>>({})
   const [snack, setSnack] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({ open: false, severity: 'success', message: '' })
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({})
+  // map flight.id -> created ticket id (if available). Used to clear saved state when a history entry is deleted elsewhere
 
   useEffect(() => {
     // Check for each flight whether the current user already saved it
@@ -41,13 +42,151 @@ const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
           start_date: toDate(flight.departureTime),
           end_date: toDate(flight.arrivalTime),
         })
-        if (exists) setSavedIds(prev => ({ ...prev, [flight.id]: true }))
+        // checkUserHasTicket returns a boolean (true if user already saved this ticket)
+        if (exists) {
+          setSavedIds(prev => ({ ...prev, [flight.id]: true }))
+        }
       } catch (e) {
         // ignore check errors; keep button enabled
         // eslint-disable-next-line no-console
         console.debug('history check failed', e)
       }
     })
+  }, [flights])
+
+  // Listen for deletions from other components (Header dispatches a `historyDeleted` CustomEvent with detail.ticketId)
+  useEffect(() => {
+    const onHistoryDeleted = (ev: Event) => {
+      try {
+        const detail = (ev as CustomEvent)?.detail || {}
+        // Ticket id may be provided in detail, but we don't need it here — we'll refresh checks for all flights
+        // debug hook to help trace why UI didn't update
+        // eslint-disable-next-line no-console
+        console.debug('FlightResults: received historyDeleted', detail)
+
+        // For each flight, re-run the checkUserHasTicket to recompute saved state.
+        ;(async () => {
+          try {
+            const stored = localStorage.getItem('currentUserId')
+            if (!stored) return
+            const userId = Number(stored)
+            if (!userId) return
+
+            const toDate = (s: string | undefined) => {
+              if (!s) return undefined
+              try {
+                const d = new Date(s)
+                if (isNaN(d.getTime())) return undefined
+                return d.toISOString().slice(0, 10)
+              } catch (e) {
+                return undefined
+              }
+            }
+
+            const results = await Promise.all(flights.map(async (flight) => {
+              try {
+                const exists = await checkUserHasTicket({
+                  userId,
+                  poiName: flight.monument || flight.city || 'Destination',
+                  poiLocation: `${flight.city || ''}, ${flight.country || ''}`,
+                  price: Number(flight.price) || 0,
+                  transport_mode: 'Avion',
+                  start_date: toDate(flight.departureTime),
+                  end_date: toDate(flight.arrivalTime),
+                })
+                return { flightId: flight.id, exists }
+              } catch (e) {
+                // treat errors as not existing
+                return { flightId: flight.id, exists: false }
+              }
+            }))
+
+            // Build new savedIds map from results
+            const nextSaved: Record<string, boolean> = {}
+            results.forEach(r => {
+              if (r.exists) nextSaved[r.flightId] = true
+            })
+            setSavedIds(nextSaved)
+            // eslint-disable-next-line no-console
+            console.debug('FlightResults: recomputed savedIds after deletion', nextSaved)
+          } catch (e) {
+            // ignore overall errors
+          }
+        })()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    window.addEventListener('historyDeleted', onHistoryDeleted as EventListener)
+    return () => window.removeEventListener('historyDeleted', onHistoryDeleted as EventListener)
+  }, [flights])
+
+  // Recompute saved state when the selected user changes
+  useEffect(() => {
+    const onUserChanged = (ev: Event) => {
+      try {
+        const detail = (ev as CustomEvent)?.detail || {}
+        // eslint-disable-next-line no-console
+        console.debug('FlightResults: received userChanged', detail)
+
+        ;(async () => {
+          try {
+            const stored = localStorage.getItem('currentUserId')
+            if (!stored) {
+              setSavedIds({})
+              return
+            }
+            const userId = Number(stored)
+            if (!userId) {
+              setSavedIds({})
+              return
+            }
+
+            const toDate = (s: string | undefined) => {
+              if (!s) return undefined
+              try {
+                const d = new Date(s)
+                if (isNaN(d.getTime())) return undefined
+                return d.toISOString().slice(0, 10)
+              } catch (e) {
+                return undefined
+              }
+            }
+
+            const results = await Promise.all(flights.map(async (flight) => {
+              try {
+                const exists = await checkUserHasTicket({
+                  userId,
+                  poiName: flight.monument || flight.city || 'Destination',
+                  poiLocation: `${flight.city || ''}, ${flight.country || ''}`,
+                  price: Number(flight.price) || 0,
+                  transport_mode: 'Avion',
+                  start_date: toDate(flight.departureTime),
+                  end_date: toDate(flight.arrivalTime),
+                })
+                return { flightId: flight.id, exists }
+              } catch (e) {
+                return { flightId: flight.id, exists: false }
+              }
+            }))
+
+            const nextSaved: Record<string, boolean> = {}
+            results.forEach(r => { if (r.exists) nextSaved[r.flightId] = true })
+            setSavedIds(nextSaved)
+            // eslint-disable-next-line no-console
+            console.debug('FlightResults: recomputed savedIds on user change', nextSaved)
+          } catch (e) {
+            // ignore
+          }
+        })()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    window.addEventListener('userChanged', onUserChanged as EventListener)
+    return () => window.removeEventListener('userChanged', onUserChanged as EventListener)
   }, [flights])
 
   const handleBookNow = (bookingUrl: string) => {
@@ -61,7 +200,7 @@ const FlightResults: React.FC<FlightResultsProps> = ({ flights }) => {
       const stored = localStorage.getItem('currentUserId')
       if (!stored) throw new Error('No current user selected')
       const userId = Number(stored)
-      await saveFlightForUser(flight, userId)
+        await saveFlightForUser(flight, userId)
       // mark as saved in UI
       setSavedIds(prev => ({ ...prev, [id]: true }))
       // simple feedback - alert for now

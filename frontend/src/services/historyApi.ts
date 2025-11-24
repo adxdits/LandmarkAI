@@ -11,6 +11,8 @@ type TicketPayload = {
   transport_mode: 'Avion' | 'Train' | 'Voiture'
   start_date?: string
   end_date?: string
+  start_time?: string
+  end_time?: string
   flight_url?: string
 }
 
@@ -71,6 +73,9 @@ type HistoryCheckRequest = {
   transport_mode?: 'Avion' | 'Train' | 'Voiture'
   start_date?: string
   end_date?: string
+  start_time?: string
+  end_time?: string
+  flight_url?: string
 }
 
 export async function checkUserHasTicket(req: HistoryCheckRequest) {
@@ -139,6 +144,8 @@ export async function saveFlightForUser(flight: any, userId: number) {
       flight_url: (flight as any).bookingUrl || (flight as any).bookingURL || undefined,
       start_date: toDate(flight.departureTime),
       end_date: toDate(flight.arrivalTime),
+      start_time: (flight.departureTime ? new Date(flight.departureTime).toISOString().slice(11,16) : undefined),
+      end_time: (flight.arrivalTime ? new Date(flight.arrivalTime).toISOString().slice(11,16) : undefined),
     })
   } catch (e: any) {
     // include debug info to help trace the 400

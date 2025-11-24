@@ -47,6 +47,11 @@ const Header: React.FC = () => {
             localStorage.setItem('currentUserId', String(created.id))
           }
           localStorage.setItem('currentUserPseudo', created.pseudo)
+          try {
+            window.dispatchEvent(new CustomEvent('userChanged', { detail: { userId: created.id } }))
+          } catch (e) {
+            // ignore
+          }
         } else {
           setUsers(list)
           const storedId = localStorage.getItem('currentUserId')
@@ -63,6 +68,11 @@ const Header: React.FC = () => {
           }
           if (selected) {
             localStorage.setItem('currentUserPseudo', selected.pseudo)
+            try {
+              window.dispatchEvent(new CustomEvent('userChanged', { detail: { userId: selected.id } }))
+            } catch (e) {
+              // ignore
+            }
           }
         }
       } catch (e) {
@@ -83,6 +93,11 @@ const Header: React.FC = () => {
     setCurrentUser(u)
     if (u.id) localStorage.setItem('currentUserId', String(u.id))
     localStorage.setItem('currentUserPseudo', u.pseudo)
+    try {
+      window.dispatchEvent(new CustomEvent('userChanged', { detail: { userId: u.id } }))
+    } catch (e) {
+      // ignore
+    }
     handleClose()
   }
 
@@ -115,6 +130,11 @@ const Header: React.FC = () => {
           localStorage.setItem('currentUserId', String(created.id))
         }
         localStorage.setItem('currentUserPseudo', created.pseudo)
+        try {
+          window.dispatchEvent(new CustomEvent('userChanged', { detail: { userId: created.id } }))
+        } catch (e) {
+          // ignore
+        }
       } else {
         setUsers(list)
         // if deleted user was current, pick first
@@ -125,6 +145,11 @@ const Header: React.FC = () => {
             localStorage.setItem('currentUserId', String(sel.id))
           }
           localStorage.setItem('currentUserPseudo', sel.pseudo)
+          try {
+            window.dispatchEvent(new CustomEvent('userChanged', { detail: { userId: sel.id } }))
+          } catch (e) {
+            // ignore
+          }
         }
       }
       closeConfirmDelete()
@@ -404,7 +429,7 @@ const Header: React.FC = () => {
                   </ListItem>
                 )}
                 {!loadingHistory && histories.map(h => (
-                  <ListItem key={h.id} alignItems="flex-start" secondaryAction={
+                  <ListItem key={h.id} alignItems="center" secondaryAction={
                     <IconButton edge="end" aria-label="delete" size="small" onClick={() => {
                       setDeleteHistoryError(null)
                       setHistToDelete(h)
@@ -417,7 +442,7 @@ const Header: React.FC = () => {
                       secondary={`${h.ticket?.poi?.location ?? ''}${h.purchase_date ? ' — ' + new Date(h.purchase_date).toLocaleDateString() : ''}`}
                     />
                     {/* Clickable booking link button */}
-                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center', alignSelf: 'center' }}>
                       <Button
                         size="small"
                         variant="outlined"
@@ -461,8 +486,19 @@ const Header: React.FC = () => {
                   try {
                     setIsDeletingHistory(true)
                     await deleteHistory(histToDelete.id)
+                    // capture ticket id before clearing
+                    const deletedTicketId = histToDelete.ticket?.id
                     setHistories(prev => prev.filter(x => x.id !== histToDelete.id))
                     setHistToDelete(null)
+                    // notify other components (e.g., FlightResults) that a history was deleted
+                    try {
+                      // debug: indicate event dispatch
+                      // eslint-disable-next-line no-console
+                      console.debug('Header: dispatching historyDeleted', { ticketId: deletedTicketId })
+                      window.dispatchEvent(new CustomEvent('historyDeleted', { detail: { ticketId: deletedTicketId } }))
+                    } catch (e) {
+                      // ignore if dispatching fails
+                    }
                   } catch (e: any) {
                     console.error('Failed to delete history', e)
                     setDeleteHistoryError(e?.message || 'Erreur lors de la suppression')
