@@ -4,8 +4,12 @@ frontend/node_modules/
 
 # Build outputs
 backend/target/
+frontend/target/
 frontend/dist/
 frontend/build/
+
+# Cargo lock (optional, can be committed for applications)
+# frontend/Cargo.lock
 
 # Model files (large ONNX models)
 *.onnx
