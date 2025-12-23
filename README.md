@@ -118,12 +118,6 @@ chmod +x run.sh
 
 ---
 
-## Local AI Architecture
-
-![Architecture](ressources/image2.png)
-
----
-
 ## Key Features
 
 | Feature                  | Description                                           |
@@ -291,7 +285,6 @@ mvnw.cmd quarkus:dev  # Windows
 ### Frontend
 - [Rust Documentation](https://doc.rust-lang.org/book/)
 - [Ratatui (TUI Framework)](https://ratatui.rs/)
-- [Crossterm (Terminal Library)](https://docs.rs/crossterm/latest/crossterm/)
 
 ### Backend
 - [Java 21 Documentation](https://docs.oracle.com/en/java/javase/21/)
